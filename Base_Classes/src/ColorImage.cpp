@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string.h>
+#include <math.h>
 #include "ColorImage.h"
 #include "BmpHeaders.h"
 
@@ -353,7 +354,97 @@ void ColorImage::writeBmp(const char *filename)
 	cout << "Done\n";
 }
 
-void ColorImage::ApplyFilter(Filter &f)
+void ColorImage::writeSpectogram(const char *filename)
+{
+	Complex **specR, **specG, **specB;
+	ColorImage spec;
+	int spec_lines = 1, spec_columns = 1;
+	CFourier fourier;
+  
+	for (int i=0; spec_lines < lines; i++) spec_lines *= 2;
+	for (int i=0; spec_columns < columns; i++) spec_columns *= 2;
+  
+	// Allocating
+	specR = new Complex *[spec_lines];
+	for (int i=0;i<spec_lines;i++) specR[i] = new Complex[spec_columns];
+	specG = new Complex *[spec_lines];
+	for (int i=0;i<spec_lines;i++) specG[i] = new Complex[spec_columns];
+	specB = new Complex *[spec_lines];
+	for (int i=0;i<spec_lines;i++) specB[i] = new Complex[spec_columns];
+  
+	cout << "Computing Specgram ... ";
+	cout.flush();
+  
+	// computing FFT
+	for (int i=0;i<lines;i++) 
+	{
+		for (int j=0;j<columns;j++) 
+		{
+			specR[i][j] = Complex(pixel[i][j].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[i][j].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[i][j].BComponent, 0.0);
+		}
+	}
+	for (int i=0; i<lines; i++) 
+	{
+		for (int j=columns; j<spec_columns; j++) 
+		{
+			specR[i][j] = Complex(pixel[i][2 * columns - j - 1].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[i][2 * columns - j - 1].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[i][2 * columns - j - 1].BComponent, 0.0);
+		}
+	}
+	for (int i=lines; i<spec_lines; i++) 
+	{
+		for (int j=0; j<columns; j++) 
+		{
+			specR[i][j] = Complex(pixel[2 * lines - i - 1][j].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[2 * lines - i - 1][j].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[2 * lines - i - 1][j].BComponent, 0.0);
+		}
+	}
+	for (int i=lines; i<spec_lines; i++) 
+	{
+		for (int j=columns; j<spec_columns; j++) 
+		{
+			specR[i][j] = Complex(pixel[2 * lines - i - 1][2 * columns - j - 1].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[2 * lines - i - 1][2 * columns - j - 1].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[2 * lines - i - 1][2 * columns - j - 1].BComponent, 0.0);
+		}
+	}
+
+	fourier.FFT_Original(specR, spec_lines, spec_columns);
+	fourier.FFT_Original(specG, spec_lines, spec_columns);
+	fourier.FFT_Original(specB, spec_lines, spec_columns);
+
+	spec.createNew(spec_lines, spec_columns);
+
+	for (int i=0; i<spec_lines; i++) 
+	{
+		for (int j=0; j<spec_columns; j++) 
+		{
+			ColorPixel specPixel = {
+				(float)log(0.01 + specR[i][j].magnitude()),
+				(float)log(0.01 + specG[i][j].magnitude()),
+				(float)log(0.01 + specB[i][j].magnitude())
+			};
+			spec.setPixel(i, j, specPixel);
+		}
+	}
+
+	cout << "Done\n";
+	spec.writeBmp(filename);
+
+	// Deallocating
+	for (int i=0; i<spec_lines; i++) delete[] specR[i];
+	delete[] specR;
+	for (int i=0; i<spec_lines; i++) delete[] specG[i];
+	delete[] specG;
+	for (int i=0; i<spec_lines; i++) delete[] specB[i];
+	delete[] specB;  
+}
+
+void ColorImage::applyFilter(Filter &f)
 {
 	int length;
 	int xindex, yindex;
@@ -424,4 +515,139 @@ void ColorImage::ApplyFilter(Filter &f)
 	
 	cout << "Done\n";
 	return;
+}
+
+void ColorImage::applyLowpassFilter(float W)
+{
+	applyBandpassFilter(0.0f, 0.0f, W);
+}
+
+void ColorImage::applyBandpassFilter(float Wx, float Wy, float W)
+{
+	Complex **specR, **specG, **specB;
+	int f, fx, fy;
+	int spec_lines = 1, spec_columns = 1;
+	CFourier fourier;
+
+	for(int i=0; spec_lines<lines; i++) spec_lines *= 2;
+	for(int i=0; spec_columns<columns; i++) spec_columns *= 2;
+  
+	// Allocating
+	specR = new Complex *[spec_lines];
+	for (int i=0;i<spec_lines;i++) specR[i] = new Complex[spec_columns];
+	specG = new Complex *[spec_lines];
+	for (int i=0;i<spec_lines;i++) specG[i] = new Complex[spec_columns];
+	specB = new Complex *[spec_lines];
+	for (int i=0;i<spec_lines;i++) specB[i] = new Complex[spec_columns];
+
+	if ((Wx == 0.0) && (Wy == 0.0)) cout << "Applying LPF ... ";
+	else cout << "Applying BPF ... ";
+  
+	cout.flush();
+
+	// computing FFT
+	for (int i=0;i<lines;i++) 
+	{
+		for (int j=0;j<columns;j++) 
+		{
+			specR[i][j] = Complex(pixel[i][j].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[i][j].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[i][j].BComponent, 0.0);
+		}
+	}
+	for (int i=0;i<lines;i++) 
+	{
+		for (int j=columns;j<spec_columns;j++) 
+		{
+			specR[i][j] = Complex(pixel[i][2 * columns - j - 1].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[i][2 * columns - j - 1].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[i][2 * columns - j - 1].BComponent, 0.0);
+		}
+	}
+	for (int i=lines;i<spec_lines;i++) 
+	{
+		for (int j=0;j<columns;j++) 
+		{
+			specR[i][j] = Complex(pixel[2 * lines - i - 1][j].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[2 * lines - i - 1][j].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[2 * lines - i - 1][j].BComponent, 0.0);
+		}
+	}
+	for (int i=lines;i<spec_lines;i++) 
+	{
+		for (int j=columns;j<spec_columns;j++) 
+		{
+			specR[i][j] = Complex(pixel[2 * lines - i - 1][2 * columns - j - 1].RComponent, 0.0);
+			specG[i][j] = Complex(pixel[2 * lines - i - 1][2 * columns - j - 1].GComponent, 0.0);
+			specB[i][j] = Complex(pixel[2 * lines - i - 1][2 * columns - j - 1].BComponent, 0.0);
+		}
+	}
+  
+	fourier.FFT_Original(specR, spec_lines, spec_columns);
+	fourier.FFT_Original(specG, spec_lines, spec_columns);
+	fourier.FFT_Original(specB, spec_lines, spec_columns);
+
+	// Applying BPF
+	fx = (int)((float)spec_lines * (Wx/2.0) / PI);
+	fy = (int)((float)spec_columns * (Wy/2.0) / PI);
+	f  = (int)((float)MIN(spec_lines,spec_columns) * (W/2.0) / PI);
+  
+	for (int i=0;i<spec_lines;i++) 
+	{
+		for (int j=0;j<spec_columns;j++) 
+		{
+			if (!(((abs(i-fx) < f)) && ((abs(j-fy) < f)) ||
+				  ((abs(spec_lines-1-i-fx) < f)) && ((abs(j-fy) < f)) ||
+				  ((abs(i-fx) < f)) && ((abs(spec_columns-1-j-fy) < f)) ||
+				  ((abs(spec_lines-1-i-fx) < f)) && ((abs(spec_columns-1-j-fy) < f))))
+			{
+				specR[i][j] = specG[i][j] = specB[i][j] = Complex(0.0, 0.0);
+			}
+		}
+	}
+
+	// computing Invert FFT
+	fourier.FFT_Inverse(specR, spec_lines, spec_columns);
+	fourier.FFT_Inverse(specG, spec_lines, spec_columns);
+	fourier.FFT_Inverse(specB, spec_lines, spec_columns);
+
+	for (int i=0;i<lines;i++) 
+	{
+		for (int j=0;j<columns;j++) 
+		{
+			pixel[i][j].RComponent = specR[i][j].getReal();
+			pixel[i][j].GComponent = specG[i][j].getReal();
+			pixel[i][j].BComponent = specB[i][j].getReal();
+		}
+	}
+
+	cout << "Done\n";
+
+	// Deallocating
+	for (int i=0;i<spec_lines;i++) delete[] specR[i];
+	delete[] specR;
+	for (int i=0;i<spec_lines;i++) delete[] specG[i];
+	delete[] specG;
+	for (int i=0;i<spec_lines;i++) delete[] specB[i];
+	delete[] specB;
+}
+
+void ColorImage::applySpectogramShift(float Wx, float Wy)
+{
+	float value;
+  
+	cout << "Shifting image in frequencies ... ";
+	cout.flush();
+  
+	for (int i=0; i<lines; i++) 
+	{
+		for (int j=0; j<columns; j++) 
+		{
+			pixel[i][j].RComponent *= cos(Wx * i) * cos(Wy * j);
+			pixel[i][j].GComponent *= cos(Wx * i) * cos(Wy * j);
+			pixel[i][j].BComponent *= cos(Wx * i) * cos(Wy * j);
+		}
+	}
+
+	cout << "Done\n";
 }

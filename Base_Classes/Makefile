@@ -9,7 +9,7 @@ INCL_DIR = include
 OBJ_DIR = obj
 LIB_DIR = lib
 
-OBJ  = $(OBJ_DIR)/BwImage.o $(OBJ_DIR)/GrayImage.o $(OBJ_DIR)/ColorImage.o $(OBJ_DIR)/Filter.o $(OBJ_DIR)/Complex.o
+OBJ  = $(OBJ_DIR)/BwImage.o $(OBJ_DIR)/GrayImage.o $(OBJ_DIR)/ColorImage.o $(OBJ_DIR)/Filter.o $(OBJ_DIR)/Fourier.o $(OBJ_DIR)/Complex.o
 LIB = libImage.a
 
 all: $(LIB)
