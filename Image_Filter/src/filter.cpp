@@ -7,7 +7,8 @@ using namespace std;
 int main(int argc,char **argv)
 {
 	ColorImage im;
-	Filter filt(PREWITT);
+	Filter filtX(PREWITT_X, 7);
+	Filter filtY(PREWITT_Y, 7);
 	
 	if (argc != 2) 
 	{
@@ -16,6 +17,10 @@ int main(int argc,char **argv)
 	}
 
 	im.readBmp(argv[1]);
-	im.ApplyFilter(filt);
-	im.writeBmp("output.bmp");
+	im.applyFilter(filtX);
+	im.writeBmp("outputX.bmp");
+	
+	im.readBmp(argv[1]);
+	im.applyFilter(filtY);
+	im.writeBmp("outputY.bmp");
 }

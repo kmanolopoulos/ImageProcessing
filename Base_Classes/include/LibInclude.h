@@ -6,5 +6,6 @@
 #include "GrayImage.h"
 #include "ColorImage.h"
 #include "Filter.h"
+#include "Constants.h"
 
 #endif	//__LIB_INCLUDE__

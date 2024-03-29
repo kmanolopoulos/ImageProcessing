@@ -2,10 +2,7 @@
 #define __FOURIER_H__
 
 #include <Complex.h>
-
-#define PI			3.1415926535897932f
-#define SWAP(a,b)	tempr=(a); (a)=(b); (b)=tempr
-#define MIN(a,b)	(a>b?a:b)
+#include "Constants.h"
 
 class CFourier
 {
